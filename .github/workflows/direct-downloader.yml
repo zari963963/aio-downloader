@@ -5,14 +5,18 @@ on:
   workflow_dispatch:
     inputs:
       url:
-        description: 'Enter the Direct Download URL'
+        description: >
+          Enter one or more Direct Download URLs.
+          Separate by commas, spaces, or newlines.
         required: true
 
 jobs:
   actions:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: true
 
@@ -21,33 +25,64 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq aria2
 
-      - name: Download File (aria2)
-        id: dl
+      - name: Parse URLs
+        id: parse
         run: |
-          URL="${{ github.event.inputs.url }}"
-          mkdir -p files-downloaded
-          aria2c -x 16 -s 16 -d files-downloaded --console-log-level=warn --summary-interval=10 "$URL"
-          
-          # Get the filename
-          FILENAME=$(ls -1 files-downloaded | head -n1)
-          echo "FILENAME=$FILENAME" >> $GITHUB_OUTPUT
+          URLS_INPUT="${{ github.event.inputs.url }}"
+          # Replace commas and newlines with spaces, then clean up
+          URLS=$(echo "$URLS_INPUT" | tr ',' ' ' | tr '\n' ' ' | tr -s ' ' | sed 's/^ *//;s/ *$//')
+          if [ -z "$URLS" ]; then
+            echo "No URLs provided." >&2
+            exit 1
+          fi
+          echo "$URLS" | tr ' ' '\n' > urls.txt
+          echo "URLs to download:"
+          cat urls.txt
+          NUM=$(wc -l < urls.txt)
+          echo "NUM_URLS=$NUM" >> $GITHUB_OUTPUT
 
-      - name: Split and Zip (with direct-content folder inside)
+      - name: Download and zip each file
         run: |
-          FILENAME="${{ steps.dl.outputs.FILENAME }}"
           mkdir -p direct
+          index=0
+          while IFS= read -r url; do
+            index=$((index + 1))
+            echo "----------------------------------------"
+            echo "Processing URL $index: $url"
 
-          # Create the structure: direct-content/FILENAME
-          mkdir -p tmpzip/direct-content
-          cp "files-downloaded/${FILENAME}" "tmpzip/direct-content/"
+            # Download into a unique temporary folder for this URL
+            DL_DIR="dl_$index"
+            mkdir -p "$DL_DIR"
+            aria2c -x 16 -s 16 -d "$DL_DIR" --console-log-level=warn --summary-interval=10 "$url"
 
-          # Zip from inside tmpzip so the archive contains the direct-content folder
-          cd tmpzip
-          zip -s 99m "../direct/${FILENAME}.zip" -r "direct-content"
-          cd ..
+            # Get the downloaded filename (there will be exactly one file)
+            DL_FILE=$(ls -1 "$DL_DIR" | head -n1)
+            if [ -z "$DL_FILE" ]; then
+              echo "Download failed or no file found for $url"
+              rm -rf "$DL_DIR"
+              continue
+            fi
+            echo "Downloaded: $DL_FILE"
 
-          # Clean up temporary folder
-          rm -rf tmpzip
+            # Generate a random 5-letter string (lowercase a-z)
+            RAND5=$(tr -dc 'a-z' </dev/urandom | head -c5)
+
+            # Append the random string before the final .zip extension
+            ZIP_BASE="${DL_FILE}_${RAND5}"
+            ZIP_NAME="${ZIP_BASE}.zip"
+            echo "ZIP output: $ZIP_NAME"
+
+            # Create temporary folder to hold only this file
+            TMPZIP="tmpzip_$index"
+            mkdir -p "$TMPZIP"
+            cp "$DL_DIR/$DL_FILE" "$TMPZIP/"
+
+            # Create split zip with the file at the archive root
+            (cd "$TMPZIP" && zip -s 99m "../direct/${ZIP_NAME}" "$DL_FILE")
+
+            # Cleanup
+            rm -rf "$DL_DIR" "$TMPZIP"
+          done < urls.txt
 
       - name: Upload to direct folder
         env:
@@ -63,7 +98,8 @@ jobs:
           fi
 
           git add direct/
-          git commit -m "Add: ${{ steps.dl.outputs.FILENAME }} [skip ci]" || echo "Nothing to commit"
+          COMMIT_MSG="Add: $(ls -1 direct/ | tr '\n' ' ' | sed 's/ *$//') [skip ci]"
+          git commit -m "$COMMIT_MSG" || echo "Nothing to commit"
 
           RETRIES=5
           for i in $(seq 1 $RETRIES); do
@@ -73,10 +109,6 @@ jobs:
               echo "Push succeeded."
               break
             else
-              if [ $i -lt $RETRIES ]; then
-                sleep 3
-              else
-                exit 1
-              fi
+              [ $i -lt $RETRIES ] && sleep 3 || exit 1
             fi
           done

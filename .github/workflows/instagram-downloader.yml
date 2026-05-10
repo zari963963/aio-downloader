@@ -11,11 +11,19 @@ on:
 jobs:
   actions:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: true
+
+      # ---------- setup Node.js 24 ----------
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
 
       # ---------- extract URLs from input ----------
       - name: Parse input and extract URLs
@@ -62,22 +70,18 @@ jobs:
 
       - name: Install tools
         run: |
-          # Python packages: yt-dlp (needed by gallery-dl) and gallery-dl itself
           pip install yt-dlp gallery-dl
 
-          # yt-dlp binary (optional, kept for potential fallback)
           if ! command -v yt-dlp &> /dev/null; then
             curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ~/.local/bin/yt-dlp
             chmod a+rx ~/.local/bin/yt-dlp
           fi
 
-          # jq & ffmpeg
           if ! command -v jq &> /dev/null || ! command -v ffmpeg &> /dev/null; then
             sudo apt-get update -qq
             sudo apt-get install -y -qq jq ffmpeg
           fi
 
-          # Deno (optional)
           if ! command -v deno &> /dev/null; then
             curl -fsSL https://deno.land/install.sh | sh -s -- -y
             echo "$HOME/.deno/bin" >> $GITHUB_PATH
@@ -101,40 +105,20 @@ jobs:
           echo "Downloads finished. Contents:"
           ls -lhR instagram_downloads/
 
-      # ---------- remux videos (if any) ----------
-      - name: Remux videos (if needed)
-        run: |
-          find instagram_downloads -type f \( -iname "*.mp4" -o -iname "*.webm" -o -iname "*.mkv" \) | while read -r f; do
-            echo "Processing $f"
-            FIXED="${f%/*}/fixed_${f##*/}"
-            ffmpeg -i "$f" -c copy "$FIXED" -y && mv "$FIXED" "$f" || echo "Remux failed for $f, keeping original."
-          done
-
-      # ---------- create flat ZIP (instagram-content/ folder inside) ----------
-      - name: Create ZIP archive
+      # ---------- create split ZIP archive with unique random suffix ----------
+      - name: Create ZIP archive (split into 99 MB parts, unique name)
         id: zip
         run: |
-          rm -rf zipcontent
-          mkdir -p zipcontent/instagram-content
-
-          # Flatten: copy each file to instagram-content/ with a unique name
-          find instagram_downloads -type f | while read -r f; do
-            rel="${f#instagram_downloads/}"
-            flat_name="${rel//\//_}"
-            cp "$f" "zipcontent/instagram-content/${flat_name}"
-          done
-
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          ZIP_NAME="instagram-contents-${TIMESTAMP}.zip"
-
-          cd zipcontent
-          zip -s 99m -r "../${ZIP_NAME}" "instagram-content"
-          cd ..
-
           mkdir -p instagram
-          mv ${ZIP_NAME}* instagram/
 
-          echo "Created archive(s):"
+          # Generate a unique 8-character suffix (no collision check needed)
+          RANDSTR=$(uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '-' | head -c 8)
+          ZIP_NAME="instagram-contents-${RANDSTR}.zip"
+
+          echo "Using archive base name: ${ZIP_NAME}"
+          zip -j -s 99m -r "instagram/${ZIP_NAME}" instagram_downloads/
+
+          echo "Created archive parts:"
           ls -lh instagram/
 
       # ---------- upload to repository ----------

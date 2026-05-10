@@ -1,453 +1,659 @@
 # aio-downloader — All-in-One GitHub Actions Downloader
+
 **[راهنمای فارسی (Persian)](#راهنمای-فارسی)**
 
-> A collection of **GitHub Actions workflows** that let you download videos, images, and files from **YouTube**, **Instagram**, and **any direct URL** – all from your browser, **without running any software on your own computer**.
+> A collection of **GitHub Actions workflows** that let you download videos, images, and files from **hundreds of websites** (YouTube, Instagram, X/Twitter, and many more via yt‑dlp), **any direct URL**, **archive public Telegram channels**, and **capture any website as a PDF** – all from your browser, **without running any software on your own computer**.
 
----
-
-## 🌟 Features
+## Features
 
 | Workflow | What it does |
-|----------|--------------|
-| **YouTube Downloader** | Downloads YouTube videos in your chosen resolution (including 4K) with optional FPS selection. Supports video-only and audio-only modes. |
+|---|---|
+| **Universal Leecher (yt‑dlp)** | Downloads videos/audio from **YouTube and 1,800+ other sites**. Use simple quality presets **or** any raw `yt-dlp` arguments if you are an advanced user. Supports video‑only, audio‑only, playlists, and more. |
 | **Instagram Downloader** | Downloads **all media** from Instagram posts, reels, stories, highlights, and profiles – including mixed carousels. Handles both images and videos. |
-| **Direct Downloader** | Downloads **any file** from a direct URL using `aria2c` (16 parallel connections, ultra-fast). Great for large files. |
+| **X (Twitter) Downloader** | Downloads **all media** (images, videos) from X/Twitter posts and profiles. Requires login cookies. Uses `gallery-dl` under the hood. |
+| **Direct Downloader** | Downloads **any file** from a direct URL using `aria2c` (16 parallel connections, ultra-fast). Splits files >99 MB into multi‑part ZIPs. |
+| **Telegram Channel Archiver** | Scrapes **public Telegram channels** every 15 minutes (cron) or on manual trigger. Saves all new messages, photos, and videos as a Markdown archive in your repo. No API key needed. |
+| **Website Capture** | Visits any public website, **follows up to 20 internal links**, captures every page as an A4 PDF, and merges everything into one polished document. Uses Playwright + Chromium behind the scenes. |
+| **AIO Cleaner** | One manual workflow to **clean up storage** for all platforms. You choose exactly what to delete: Telegram media, YouTube files, X files, Instagram files, Website captures, or **all at once**. |
 
 ✅ **All downloads are automatically split into 99 MB parts, zipped, and uploaded back to your repository** – you can download them anytime from GitHub.
-
 ✅ **No server, no VPS, and no local installation required** – everything runs on GitHub's free infrastructure.
-
 ✅ **Cookies are stored securely** as GitHub Secrets – never exposed in logs or code.
-
-✅ **Batch downloading** – paste up to 10+ Instagram links at once, separated by commas, spaces, or newlines.
-
-✅ **Concurrent runs** – You can trigger multiple workflow runs at the same time (e.g., download multiple YouTube video, an Instagram batch, and multiple direct file – all in parallel). Each run is independent and won't interfere with the others.
+✅ **Batch downloading** – paste up to 10+ Instagram or X links at once.
+✅ **Concurrent runs** – trigger multiple workflows simultaneously; each run is independent.
 
 ---
 
-## 🔧 Requirements (Before You Start)
+## Requirements (Before You Start)
 
 - A **GitHub account** (free)
-- A **browser** (Chrome/Firefox/Edge) with the extension **"Get cookies.txt LOCALLY"** to export your login cookies
-- (Optional) An **Instagram account** if you want to download private/story content
+- A **browser** (Chrome/Firefox/Edge) with the extension **"Get cookies.txt LOCALLY"** to export login cookies (for YouTube, Instagram, X)
+- (Optional) An **Instagram account** for private/story content
+- An **X (Twitter) account** (required for the X downloader)
+- For Telegram and Website Capture: **nothing extra** – they work without login or API keys.
 
 ---
 
-## 🍴 How to Fork and Set Up
+## How to Fork and Set Up
 
 ### Step 1: Fork the repository
-
-Click the **"Fork"** button at the top-right of this page.
+Click the **"Fork"** button at the top‑right of this page.
 
 ### Step 2: Enable GitHub Actions
-
 1. Go to your forked repository → **Settings** → **Actions** → **General**
 2. Under **"Actions permissions"** select **"Allow all actions and reusable workflows"**
 3. Click **Save**
 
 ### Step 3: Grant Workflow Write Permissions (IMPORTANT!)
-
 1. Still under **Settings** → **Actions** → **General**
 2. Scroll down to **"Workflow permissions"**
-3. Select **"Read and write permissions"**  
-   (Workflows need this to commit and push downloaded files back to your repository.)
+3. Select **"Read and write permissions"** (Workflows need this to commit and push downloaded files back to your repository.)
 4. Click **Save**
 
 > ⚠️ If you skip this step, the workflow will fail when trying to upload the ZIP files.
 
 ---
 
-## 🍪 How to Add Cookies (For YouTube & Instagram)
+## How to Add Cookies (For YouTube, Instagram & X)
 
-> **Note:** YouTube and Instagram often require login cookies to access certain content (e.g., private videos, stories, highlights). If you're only downloading public content, you can skip this step.
+> **Note:** YouTube and Instagram may require login cookies for some content. X (Twitter) **REQUIRES** login cookies. Telegram and Website Capture work without any cookies.
 
-### 1. Export Cookies from Your Browser
-
-- Install the extension **"Get cookies.txt LOCALLY"** from the Chrome Web Store or Firefox Add-ons.
-- Log into **youtube.com** (for the YouTube downloader) or **instagram.com** (for the Instagram downloader) in your browser.
+### 1. Export Cookies from Your Browser – Use a Private/Incognito Window!
+- **Open a new private/incognito window** in your browser.
+- Install the extension **"Get cookies.txt LOCALLY"** (Chrome Web Store or Firefox Add‑ons).
+- In that private window, log into **youtube.com** (for YouTube), **instagram.com** (for Instagram), or **x.com** (for X).
 - Click the extension icon and choose **"Export"** (Netscape format).
 - Save the `.txt` file somewhere safe.
+- **Close the private window completely** – this ensures the exported session is not kept open elsewhere.
 
 ### 2. Add Cookies as GitHub Secrets
-
 1. In your forked repository, go to **Settings** → **Secrets and variables** → **Actions**
 2. Click **"New repository secret"**
-3. Create a secret named **`YOUTUBE_COOKIES`** and paste the entire contents of your YouTube `cookies.txt` file.
-4. Create another secret named **`INSTAGRAM_COOKIES`** and paste your Instagram `cookies.txt` contents.
+3. Create a secret named **`YOUTUBE_COOKIES`** and paste the entire contents of your YouTube `cookies.txt`.
+4. Create a secret named **`INSTAGRAM_COOKIES`** and paste your Instagram `cookies.txt`.
+5. Create a secret named **`X_COOKIES`** and paste your X (Twitter) `cookies.txt`.
 
-> ⚠️ **Never commit your cookie files directly to the repository.** The workflow automatically reads them from the secrets and creates a temporary file during execution.
+> ⚠️ **Never commit cookie files directly to the repository.** The workflow creates a temporary file from the secrets.
 
 ---
 
-## 🚀 How to Use
+## How to Use Every Workflow
 
-### YouTube Downloader
+### 1. Universal Leecher (yt‑dlp) – YouTube & 1,800+ Sites
 
-1. Go to your forked repository → **Actions** → Select **"youtube-downloader"**
-2. Click the **"Run workflow"** button
-3. In the input box, type: `URL` `v/a` `resolution/bitrate` `FPS (optional)`
+This workflow uses `yt-dlp`, the most powerful video downloader. You can use **simple quality presets** or, if you are an expert, **full raw `yt-dlp` arguments**.
+
+#### Simple Mode (Quality Presets)
+
+1. Go to **Actions** → select **"youtube-downloader"**
+2. Click **"Run workflow"**
+3. Enter one or more entries, each on a new line (or comma‑separated). Format: `URL v/a resolution fps` (fps optional).
 
 **Examples:**
-1. **Best quality video:**  
-   `https://www.youtube.com/watch?v=VIDEO_ID v max`
-2. **1080p 60fps video:**  
-   `https://www.youtube.com/watch?v=VIDEO_ID v 1080 60`
-3. **4K video:**  
-   `https://www.youtube.com/watch?v=VIDEO_ID v 4k`
-4. **Best quality audio only:**  
-   `https://www.youtube.com/watch?v=VIDEO_ID a max`
 
-- `v` = video, `a` = audio
-- Resolution: `max`, `min`, `1080`, `2k`, `4k`, etc.
-- FPS: optional, e.g., `60`, `30`
+```
+https://www.youtube.com/watch?v=VIDEO_ID v max
+https://www.youtube.com/watch?v=VIDEO_ID v 1080 60
+https://www.youtube.com/watch?v=VIDEO_ID a max
+https://www.youtube.com/watch?v=VIDEO_ID v 4k, https://www.youtube.com/watch?v=VIDEO_ID a 128
+```
+
+- `v` = video, `a` = audio  
+- Resolution: `max`, `min`, `1080`, `2k`, `4k`, etc.  
+- FPS: optional (e.g., `60`, `30`)  
 - If you omit `v/a`, it defaults to **video max quality**
 
-4. Click **"Run workflow"**
-5. When the workflow finishes, the output will be in the **`youtube/`** folder of your repository.
+4. Click **"Run workflow"** → output appears in the **`youtube/`** folder.
+
+#### Advanced / Raw Mode (For Expert Users)
+
+If you need features like `--playlist-reverse`, `--dateafter`, `--cookies-from-browser`, or any other yt‑dlp option, **just pass them directly** as the input. The workflow will detect raw options and skip the simple parser.
+
+**Example (raw):**
+
+```
+https://www.youtube.com/playlist?list=PL... --playlist-reverse --dateafter 20250101
+```
+
+You can find the **complete list of supported sites** here:  
+🔗 [yt‑dlp Supported Sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
+
+> 💡 **What can you download?** YouTube, Vimeo, Twitch, Dailymotion, TikTok, Facebook videos, Twitter videos, Reddit, BBC, CNN, … – over 1,800 sites.
 
 ---
 
-### Instagram Downloader
+### 2. Instagram Downloader
 
-1. Go to **Actions** → Select **"instagram-downloader"**
+1. Go to **Actions** → select **"instagram-downloader"**
 2. Click **"Run workflow"**
-3. In the input box, paste your Instagram links – **separated by commas, spaces, or newlines**
+3. Paste Instagram links – separated by commas, spaces, or newlines.
 
 **Example:**
+
+```
 https://www.instagram.com/p/DX2y7oLDFOb/, https://www.instagram.com/reel/DVRXhn0gjL3/, https://www.instagram.com/p/DX6US4uCNGb/
+```
 
-
-4. Click **"Run workflow"**
-5. When finished, the output ZIP will appear in the **`instagram/`** folder of your repository.
-
-> 💡 **Tip:** You can paste up to 10+ links at once – the downloader processes them all and bundles them into a single ZIP file.
+4. Click **"Run workflow"** → output appears as a ZIP in the **`instagram/`** folder.  
+   Up to 10+ links are bundled into one ZIP.
 
 ---
 
-### Direct Downloader
+### 3. X (Twitter) Downloader
 
-1. Go to **Actions** → Select **"direct-downloader"**
+1. Go to **Actions** → select **"x-downloader"**
 2. Click **"Run workflow"**
-3. Paste any direct download URL (e.g., a `.zip`, `.mp4`, `.apk`, `.pdf`, etc.)
+3. Paste X links – separated by commas, spaces, or newlines.
 
 **Example:**
-https://example.com/path/to/large-file.zip
 
-
-4. Click **"Run workflow"**
-5. The file will be downloaded with 16 parallel connections and uploaded to the **`direct/`** folder of your repository, split into 99 MB parts if needed.
-
----
-
-## 📁 Output Folder Structure
-```plaintext
-your-repository/
-├── youtube/
-│ └── Video Title.mp4.zip ← YouTube downloads (split into parts if > 99 MB)
-├── instagram/
-│ └── instagram-contents-YYYYMMDD_HHMMSS.zip ← All Instagram content bundled together
-├── direct/
-│ └── filename.zip ← Direct downloads (split into parts if > 99 MB)
+```
+https://x.com/username/status/123456789, https://x.com/otheruser/status/987654321
 ```
 
+> ⚠️ **`X_COOKIES` secret is mandatory.** (See the cookies section above.)
 
-### Inside the Instagram ZIP
+4. Click **"Run workflow"** → the ZIP appears in the **`x/`** folder.
 
-When you open the Instagram ZIP, you'll see:
-```plaintext
-instagram-content/
-├── instagram_moruhiko_388851...jpg
-├── instagram_moruhiko_388851...jpg
-├── instagram_israelinpersian_...webp
-├── instagram_meme.azaad_...mp4
-└── ...
+---
+
+### 4. Direct Downloader
+
+1. Go to **Actions** → select **"direct-downloader"**
+2. Click **"Run workflow"**
+3. Paste direct download URLs (e.g., `.zip`, `.mp4`, `.apk`, `.pdf`), separated by commas, spaces, or newlines.
+
+**Example:**
+
+```
+https://example.com/path/to/large-file.zip, https://example.com/another-file.mp4
 ```
 
-All files are flattened into a single folder for easy browsing. Filenames are prefixed with the uploader's username to avoid collisions.
+4. Click **"Run workflow"** → files appear in **`direct/`** folder (split into 99 MB parts if needed).
 
 ---
 
-## ⏱️ Limitations
+### 5. Telegram Channel Archiver
 
-- **GitHub Free Tier** allows up to **6 hours per job** (public repos get **unlimited minutes**).
-- Files larger than **99 MB** are automatically split into multi-part ZIP archives (`.z01`, `.z02`, ...). You need a tool like **7-Zip** or **WinRAR** to extract them.
-- For very large Instagram batches, consider splitting them into smaller groups to avoid hitting GitHub's storage limits.
+Scrapes **public Telegram channels** and stores messages, photos, and videos as a Markdown archive. It can run **automatically every 15 minutes** or **manually whenever you want**.
+
+> If the automatic cron ever stops (e.g., GitHub disables scheduled runs on inactive forks), you can **always trigger it manually** – manual runs are 100% reliable.
+
+#### How It Works (Step by Step)
+
+1. Reads your channel list from `telegram/channels.json`.
+2. Launches a Chromium browser (Playwright) and visits `https://t.me/s/<channel>`.
+3. Scrolls to fetch all new messages since the last check.
+4. Extracts message text, UTC times, photos (CSS background‑url), and videos (`<video>` tags).
+5. Downloads all media into `telegram/content/`.
+6. Converts UTC times to Iran/Tehran timezone and Jalali (Hijri‑Shamsi) calendar dates.
+7. Sorts all messages from all channels by time (newest first).
+8. Writes everything into `telegram.md` at the root of your repo with Markdown formatting.
+9. Saves the last message ID per channel in `telegram/last_ids.json` so only new content is fetched next time.
+10. Commits and pushes the changes with a 5‑retry loop.
+
+#### Viewing Your Archive
+
+Open `telegram.md` in your repository. GitHub renders Markdown natively – you’ll see formatted text, embedded images, and clickable video links. All dates are in Jalali calendar with Tehran timezone.
+
+**Example output:**
+
+```
+# Telegram Channel Archive
+
+## 1404/02/16 14:30 — channelname
+![Photo](telegram/content/channelname_12345_1712345678.jpg)
+
+> This is the message text
+
+## 1404/02/16 14:15 — otherchannel
+[🎬 Video](telegram/content/otherchannel_67890_1712345678.mp4)
+
+> Another message
+```
+
+#### Add or Remove Channels
+
+Edit `telegram/channels.json` directly on GitHub (click the **pencil icon** ✏️).  
+Add or remove usernames (with or without `@`). Only **public** channels work.
+
+**Example:**
+
+```
+[
+  "VahidOOnLine",
+  "mwarmonitor",
+  "pm_afshaa",
+  "iaghapour",
+  "DEJradio",
+  "mamlekate",
+  "VahidOnline",
+  "kianmeli1"
+]
+```
+
+Commit the changes – the next run (automatic or manual) picks them up.
+
+#### Trigger Manually
+
+1. **Actions** → **"telegram-fetcher"**
+2. **"Run workflow"** → **"Run workflow"**
 
 ---
 
-## 💾 Managing Repository Storage (5 GB Limit)
+### 6. Website Capture (NEW)
 
-GitHub repositories have a **5 GB soft limit** (and a hard limit of 100 GB, but it's best to stay under 5 GB for performance). If you download frequently, your `youtube/`, `instagram/`, and `direct/` folders can fill up quickly. To avoid issues, clean out old files regularly.
+Turns any **public website** into a single, polished PDF document. It uses **Playwright + Chromium** to render pages exactly like a real user would see them – including JavaScript, CSS, images, and dynamic content.
 
-### How to Delete Files or Folders via GitHub Web Interface
+Perfect for:
+- Archiving news articles, blog posts, or documentation for offline reading.
+- Creating printable copies of web content.
+- Preserving pages that may change or disappear.
 
-#### Delete a Single File
-1. Navigate to the file inside your repository (e.g., `youtube/some-video.zip`).
-2. Click the **three dots (`...`)** in the top-right corner of the file view.
-3. Select **"Delete file"**.
-4. At the bottom of the page, click **"Commit changes"** (add a commit message if you like) and confirm.
+#### How It Works
 
-#### Delete an Entire Folder
-1. Go to the folder you want to remove (e.g., `instagram/`).
-2. **Important:** You must delete all files inside the folder first, or use the following trick to delete the whole folder at once:
-   - Open the folder, then click the **three dots (`...`)** next to the folder name (or in the top-right area, depending on GitHub's UI). Wait for the option **"Delete directory"** – this appears when the folder is empty. If you want a faster method:
-3. **Fastest way to delete a whole folder and all its contents:**
-   - Navigate to the root of your repository.
-   - Open the folder you want to delete.
-   - Manually delete each file by following the single file steps above, OR use the **"Go to file"** button and the web editor to remove multiple files at once (but it's still manual).
-   - *Alternative (recommended):* Go to your repository's main page, press the **`.`** (period) key on your keyboard to open GitHub's web-based VS Code editor. In the file explorer on the left, right-click the folder (e.g., `youtube/`) and select **"Delete"**. Then commit the changes via the Source Control panel. This is the quickest method for bulk deletion.
+1. You provide a URL.
+2. The workflow launches Chromium and captures the main page as an A4 PDF (with print backgrounds, proper margins).
+3. It extracts **up to 20 internal links** from the same domain.
+4. Each linked page is visited and captured as a PDF.
+5. All PDFs are merged into one file using `pdf-lib` – main page first, then internal pages.
+6. The merged PDF is saved to `website/` with a descriptive name like `hostname-random5chars.pdf`.
+7. The file is committed and pushed to your repository.
 
-> 💡 **Tip:** Check your repository size regularly in **Settings** → **Repository** → **Repository size**. If it approaches 5 GB, delete older ZIP files or clear out entire folders to stay within limits.
+#### How to Use
+
+1. Go to **Actions** → select **"website-capture"**
+2. Click **"Run workflow"**
+3. Enter the full URL (must start with `https://`).
+
+**Examples:**
+
+```
+https://example.com/article/my-post
+https://developer.mozilla.org/en-US/docs/Web/JavaScript
+https://github.com/ProAlit/aio-downloader
+```
+
+4. Click **"Run workflow"** – within 5–10 minutes the PDF appears in the **`website/`** folder.
+
+> ⚠️ **Limitations:**  
+> - Only public sites (no login walls).  
+> - Maximum 20 internal links are followed.  
+> - 30‑minute timeout per capture.  
+> - JavaScript‑heavy single‑page apps may not render perfectly.  
+> - No cookies needed!
 
 ---
 
-## 📄 License
+### 7. AIO Cleaner – Manage Your Storage
+
+All downloads go into your repository and can quickly eat into GitHub’s **5 GB soft limit**. The **AIO Cleaner** lets you wipe the downloads of any platform with one click.
+
+#### What It Cleans
+
+| Platform | What gets deleted |
+|---|---|
+| **Telegram** | The `telegram/content/` folder (media) and `telegram.md` (archive). Your channel list and message‑tracking files are kept. |
+| **YouTube / Universal** | The entire `youtube/` folder. |
+| **Instagram** | The entire `instagram/` folder. |
+| **X (Twitter)** | The entire `x/` folder. |
+| **Website** | The entire `website/` folder (captured PDFs). |
+| **Leecher** | The entire `leecher/` folder. |
+
+#### How to Run
+
+1. Go to **Actions** → select **"aio-cleaner"**
+2. Click **"Run workflow"**
+3. You’ll see six checkboxes:
+   - ✅ **Clean ALL platforms** – wipe everything.
+   - ✅ **Clean Telegram**
+   - ✅ **Clean Youtube**
+   - ✅ **Clean X**
+   - ✅ **Clean Instagram**
+   - ✅ **Clean Website**
+4. Tick the platforms you want to clean, then click **"Run workflow"**.  
+   Example: Tick only **Clean Website** to remove all captured PDFs.
+
+> ⚠️ Deletion is permanent. Make sure you have saved any important files first.
+
+The cleaner runs in seconds and commits the deletions automatically. Check your repository size at **Settings → Repository → Repository size** regularly.
+
+---
+
+## ⏱️ Limitations & Tips
+
+- **GitHub Free Tier:** up to 6 hours per job (public repos get unlimited minutes).
+- Files > **99 MB** are split into multi‑part ZIP archives (`.z01`, `.z02` …). Use **7‑Zip** or **WinRAR** to extract.
+- Very large batches should be split into smaller groups.
+- **X (Twitter) downloader requires cookies.**
+- **Telegram archiver only works with public channels.**
+- **Website Capture** works only on public sites; up to 20 internal links are followed.
+- Use the **AIO Cleaner** regularly to keep storage under control.
+
+---
+
+## Support
+
+⭐ If this project is useful to you, please **give the repo a star** – it helps others discover it.
+
+🐛 **Found a bug? Have a suggestion?**  
+Open an issue [here](https://github.com/ProAlit/aio-downloader/issues).  
+For faster help, include:
+- The workflow name you were running.
+- The input you used (without your cookies!).
+- The error message or log (copy it from the Actions tab).
+
+---
+
+## License
 
 MIT License
 
-Copyright (c) 2025 ProAlit
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-<hr style="border-top: 3px solid #333;">
+---
 
 # راهنمای فارسی
 
-## aio-downloader — دانلودر همه‌کاره با GitHub Actions
+## aio-downloader — دانلودر همه کاره با GitHub Actions
 
-> مجموعه‌ای از **گردش‌کارهای GitHub Actions** که به شما امکان می‌دهند ویدیوها، تصاویر و فایل‌ها را از **یوتیوب**، **اینستاگرام** و **هر لینک مستقیم** — مستقیماً از مرورگر خود و **بدون اجرای هیچ نرم‌افزاری روی کامپیوترتان** دانلود کنید.
+> مجموعه ای از **گردش کارهای GitHub Actions** که به شما امکان می دهند ویدیوها، تصاویر و فایل ها را از **صدها وبسایت** (یوتیوب، اینستاگرام، X/توییتر و بسیاری دیگر از طریق yt‑dlp)، **هر لینک مستقیم**، **آرشیو کانال های عمومی تلگرام** و **ذخیره هر وبسایت به صورت PDF** دانلود کنید – همه از مرورگرتان، **بدون اجرای هیچ نرم افزاری روی کامپیوترتان**.
 
----
+## ویژگی ها
 
-## 🌟 ویژگی‌ها
+| گردش کار | کاربرد |
+|---|---|
+| **دانلودر جهانی (yt‑dlp)** | دانلود ویدیو/صدا از **یوتیوب و بیش از ۱,۸۰۰ سایت دیگر**. می توانید از پیش فرض های ساده کیفیت استفاده کنید **یا** اگر کاربر حرفه ای هستید، آرگومان های کامل `yt-dlp` را وارد کنید. |
+| **دانلودر اینستاگرام** | دانلود **تمام محتوا** از پست ها، ریلزها، استوری ها، هایلایت ها و پروفایل ها – شامل کاروسل های ترکیبی. |
+| **دانلودر X (توییتر)** | دانلود تمام عکس ها و ویدیوها از توییت ها و پروفایل های X. نیاز به کوکی ورود دارد. |
+| **دانلودر مستقیم** | دانلود **هر فایلی** از لینک مستقیم با `aria2c` (۱۶ اتصال موازی). فایل های بزرگتر از ۹۹ مگابایت به ZIP چند بخشی تقسیم می شوند. |
+| **آرشیو کانال تلگرام** | اسکن **کانال های عمومی تلگرام** هر ۱۵ دقیقه (یا دستی) و ذخیره پیام ها، عکس ها و ویدیوها به صورت بایگانی Markdown. بدون نیاز به API. |
+| **ضبط وبسایت** | از یک وبسایت عمومی بازدید می کند، **تا ۲۰ لینک داخلی** را دنبال می کند، هر صفحه را به PDF با اندازه A4 تبدیل و همه را در یک فایل ادغام می کند. از Playwright + Chromium استفاده می کند. |
+| **پاک کننده جامع (AIO Cleaner)** | یک گردش کار دستی برای **پاکسازی فضای ذخیره سازی** همه پلتفرم ها. شما انتخاب می کنید چه چیزی حذف شود: محتوای تلگرام، یوتیوب، X، اینستاگرام، وبسایت، یا **همه با هم**. |
 
-| گردش‌کار | کاربرد |
-|----------|--------|
-| **دانلودر یوتیوب** | دانلود ویدیوهای یوتیوب با رزولوشن دلخواه (از جمله 4K) و انتخاب FPS. پشتیبانی از حالت فقط-ویدیو و فقط-صدا. |
-| **دانلودر اینستاگرام** | دانلود **تمام محتوا** از پست‌ها، ریلزها، استوری‌ها، هایلایت‌ها و پروفایل‌های اینستاگرام — شامل کاروسل‌های ترکیبی (عکس + ویدیو). |
-| **دانلودر مستقیم** | دانلود **هر فایلی** از یک لینک مستقیم با `aria2c` (16 اتصال موازی، بسیار سریع). مناسب برای فایل‌های حجیم. |
-
-✅ **تمام دانلودها به‌طور خودکار به قطعات ۹۹ مگابایتی تقسیم، فشرده و در مخزن شما آپلود می‌شوند** — هر زمان می‌توانید آن‌ها را از GitHub دانلود کنید.
-
-✅ **بدون نیاز به سرور، VPS یا نصب نرم‌افزار** — همه چیز روی زیرساخت رایگان GitHub اجرا می‌شود.
-
-✅ **کوکی‌ها به‌صورت امن در GitHub Secrets ذخیره می‌شوند** — هرگز در لاگ‌ها یا کد نمایش داده نمی‌شوند.
-
-✅ **دانلود دسته‌جمعی** — تا ۱۰+ لینک اینستاگرام را همزمان (با کاما، فاصله یا خط جدید جدا کنید) بچسبانید.
-
-✅ **اجرای هم‌زمان** — می‌توانید چندین گردش‌کار را هم‌زمان اجرا کنید (مثلاً چند ویدیو از یوتیوب، یک دسته از اینستاگرام و چند فایل مستقیم، همه موازی). هر اجرا مستقل است و تداخلی با بقیه ندارد.
+✅ تمام دانلودها به طور خودکار به قطعات ۹۹ مگابایتی تقسیم، فشرده و در مخزن شما آپلود می شوند.
+✅ بدون نیاز به سرور، VPS یا نصب نرم افزار – همه چیز روی زیرساخت رایگان GitHub اجرا می شود.
+✅ کوکی ها به صورت امن در GitHub Secrets ذخیره می شوند – هرگز در لاگ ها یا کد نمایش داده نمی شوند.
+✅ دانلود دسته جمعی – تا ۱۰+ لینک اینستاگرام یا X همزمان.
+✅ اجرای همزمان – می توانید چندین گردش کار را همزمان اجرا کنید.
 
 ---
 
-## 🔧 پیش‌نیازها (قبل از شروع)
+## پیش نیازها (قبل از شروع)
 
 - یک **حساب GitHub** (رایگان)
-- یک **مرورگر** (Chrome/Firefox/Edge) با افزونه **"Get cookies.txt LOCALLY"** برای استخراج کوکی‌های ورود
-- (اختیاری) یک **حساب اینستاگرام** اگر می‌خواهید محتوای خصوصی/استوری دانلود کنید
+- یک **مرورگر** (Chrome/Firefox/Edge) با افزونه **"Get cookies.txt LOCALLY"** برای استخراج کوکی های ورود
+- (اختیاری) یک **حساب اینستاگرام** برای محتوای خصوصی/استوری
+- یک **حساب X (توییتر)** (برای دانلودر X الزامی است)
+- برای تلگرام و ضبط وبسایت: **هیچ چیز اضافی لازم نیست** – بدون ورود یا API کار می کنند.
 
 ---
 
-## 🍴 نحوه فورک کردن و راه‌اندازی
+## نحوه فورک کردن و راه اندازی
 
 ### مرحله ۱: فورک کردن مخزن
-
 روی دکمه **"Fork"** در بالای صفحه کلیک کنید.
 
 ### مرحله ۲: فعال کردن GitHub Actions
-
-1. به مخزن فورک‌شده خود بروید → **Settings** → **Actions** → **General**
+1. به مخزن فورک شده خود بروید → **Settings** → **Actions** → **General**
 2. در بخش **"Actions permissions"** گزینه **"Allow all actions and reusable workflows"** را انتخاب کنید.
 3. روی **Save** کلیک کنید.
 
 ### مرحله ۳: دادن دسترسی نوشتن به GitHub Actions (مهم!)
+1. همان مسیر → **"Workflow permissions"**
+2. گزینه **"Read and write permissions"** را انتخاب کنید.
+3. روی **Save** کلیک کنید.
 
-1. همچنان در **Settings** → **Actions** → **General** بمانید.
-2. به بخش **"Workflow permissions"** بروید.
-3. گزینه **"Read and write permissions"** را انتخاب کنید.  
-   (گردش‌کارها برای commit کردن و push کردن فایل‌های دانلود شده به این دسترسی نیاز دارند.)
-4. روی **Save** کلیک کنید.
-
-> ⚠️ اگر این مرحله را انجام ندهید، گردش‌کار هنگام تلاش برای آپلود فایل‌های ZIP شکست خواهد خورد.
+> ⚠️ اگر این مرحله را انجام ندهید، گردش کار هنگام آپلود فایل های ZIP با خطا مواجه می شود.
 
 ---
 
-## 🍪 نحوه اضافه کردن کوکی‌ها (برای یوتیوب و اینستاگرام)
+## نحوه اضافه کردن کوکی ها (برای یوتیوب، اینستاگرام و X)
 
-> **توجه:** یوتیوب و اینستاگرام اغلب برای دسترسی به محتوای خاص (مثلاً ویدیوهای خصوصی، استوری‌ها، هایلایت‌ها) به کوکی‌های ورود نیاز دارند. اگر فقط محتوای عمومی دانلود می‌کنید، می‌توانید این مرحله را نادیده بگیرید.
+> توجه: یوتیوب و اینستاگرام ممکن است برای برخی محتواها به کوکی نیاز داشته باشند. X (توییتر) **حتماً** به کوکی نیاز دارد. تلگرام و ضبط وبسایت بدون کوکی کار می کنند.
 
-### ۱. استخراج کوکی‌ها از مرورگر
-
-- افزونه **"Get cookies.txt LOCALLY"** را از فروشگاه Chrome یا Firefox نصب کنید.
-- در مرورگر خود وارد **youtube.com** (برای دانلودر یوتیوب) یا **instagram.com** (برای دانلودر اینستاگرام) شوید. (بهتر است یک تب پرایویت باز کنید و مجدد لاگین کنید برای بهترین کوکی ها)
+### ۱. استخراج کوکی ها از مرورگر – حتماً از پنجره ناشناس/خصوصی استفاده کنید!
+- **یک پنجره جدید ناشناس/خصوصی** در مرورگر خود باز کنید.
+- افزونه **"Get cookies.txt LOCALLY"** را نصب کنید.
+- در همان پنجره خصوصی وارد **youtube.com**، **instagram.com** یا **x.com** شوید.
 - روی آیکون افزونه کلیک کنید و **"Export"** (فرمت Netscape) را انتخاب کنید.
 - فایل `.txt` را در جای امنی ذخیره کنید.
+- **پنجره خصوصی را کاملاً ببندید** – این اطمینان می دهد که نشست صادر شده در جای دیگری باز نمی ماند.
 
-### ۲. اضافه کردن کوکی‌ها به عنوان GitHub Secrets
-
-1. در مخزن فورک‌شده، به **Settings** → **Secrets and variables** → **Actions** بروید.
+### ۲. اضافه کردن کوکی ها به عنوان GitHub Secrets
+1. در مخزن فورک شده، به **Settings** → **Secrets and variables** → **Actions** بروید.
 2. روی **"New repository secret"** کلیک کنید.
-3. یک secret با نام **`YOUTUBE_COOKIES`** بسازید و محتوای کامل فایل `cookies.txt` یوتیوب را در آن بچسبانید.
-4. یک secret دیگر با نام **`INSTAGRAM_COOKIES`** بسازید و محتوای فایل `cookies.txt` اینستاگرام را در آن بچسبانید.
+3. یک secret با نام **`YOUTUBE_COOKIES`** بسازید و محتوای فایل یوتیوب را بچسبانید.
+4. یک secret با نام **`INSTAGRAM_COOKIES`** بسازید و محتوای فایل اینستاگرام را بچسبانید.
+5. یک secret با نام **`X_COOKIES`** بسازید و محتوای فایل X را بچسبانید.
 
-> ⚠️ **هرگز فایل‌های کوکی را مستقیماً در مخزن commit نکنید.** گردش‌کار به‌طور خودکار آن‌ها را از secrets خوانده و یک فایل موقت در زمان اجرا ایجاد می‌کند.
+> ⚠️ هرگز فایل های کوکی را مستقیماً در مخزن commit نکنید. گردش کار از secrets استفاده می کند.
 
 ---
 
-## 🚀 نحوه استفاده
+## راهنمای کامل هر گردش کار
 
-### دانلودر یوتیوب
+### ۱. دانلودر جهانی (yt‑dlp) – یوتیوب و ۱,۸۰۰+ سایت
 
-1. به مخزن فورک‌شده خود بروید → **Actions** → **"youtube-downloader"** را انتخاب کنید.
-2. روی دکمه **"Run workflow"** کلیک کنید.
-3. در کادر ورودی، تایپ کنید: `لینک` `v/a` `رزولوشن/بیت‌ریت` `FPS (اختیاری)`
+این گردش کار از `yt-dlp` قدرتمندترین ابزار دانلود ویدیو استفاده می کند. می توانید از **پیش فرض های ساده** یا **آرگومان های کامل `yt-dlp`** (برای کاربران حرفه ای) استفاده کنید.
 
-**مثال‌ها:**
-1. **بهترین کیفیت ویدیو:**  
-   `https://www.youtube.com/watch?v=VIDEO_ID v max`
-2. **ویدیو 1080p با ۶۰ فریم:**  
-   `https://www.youtube.com/watch?v=VIDEO_ID v 1080 60`
-3. **ویدیو 4K:**  
-   `https://www.youtube.com/watch?v=VIDEO_ID v 4k`
-4. **بهترین کیفیت صدا (فقط صدا):**  
-   `https://www.youtube.com/watch?v=VIDEO_ID a max`
+#### حالت ساده (پیش فرض های کیفیت)
+
+1. به **Actions** بروید → **"youtube-downloader"** را انتخاب کنید.
+2. روی **"Run workflow"** کلیک کنید.
+3. یک یا چند ورودی وارد کنید (هر خط جداگانه یا با کاما). فرمت: `URL v/a رزولوشن fps` (fps اختیاری).
+
+**مثال ها:**
+
+```
+https://www.youtube.com/watch?v=VIDEO_ID v max
+https://www.youtube.com/watch?v=VIDEO_ID v 1080 60
+https://www.youtube.com/watch?v=VIDEO_ID a max
+https://www.youtube.com/watch?v=VIDEO_ID v 4k, https://www.youtube.com/watch?v=VIDEO_ID a 128
+```
 
 - `v` = ویدیو، `a` = صدا
-- رزولوشن: `max`، `min`، `1080`، `2k`، `4k` و غیره.
-- FPS: اختیاری، مثلاً `60`، `30`
-- اگر `v/a` را وارد نکنید، به‌طور پیش‌فرض **حداکثر کیفیت ویدیو** انتخاب می‌شود.
+- رزولوشن: `max`, `min`, `1080`, `2k`, `4k` و غیره
+- FPS: اختیاری
+- اگر `v/a` را وارد نکنید، به طور پیش فرض **حداکثر کیفیت ویدیو** انتخاب می شود.
 
-4. روی **"Run workflow"** کلیک کنید.
-5. پس از اتمام، خروجی در پوشه **`youtube/`** مخزن شما قرار می‌گیرد.
+4. روی **"Run workflow"** کلیک کنید → خروجی در پوشه **`youtube/`** قرار می گیرد.
+
+#### حالت پیشرفته / خام (برای کاربران حرفه ای)
+
+اگر به گزینه هایی مانند `--playlist-reverse`, `--dateafter`, `--cookies-from-browser` یا هر گزینه دیگر yt‑dlp نیاز دارید، **می توانید آن ها را مستقیماً وارد کنید**. گردش کار گزینه های خام را تشخیص داده و پردازش می کند.
+
+**مثال (خام):**
+
+```
+https://www.youtube.com/playlist?list=PL... --playlist-reverse --dateafter 20250101
+```
+
+لیست کامل سایت های پشتیبانی شده:  
+🔗 [yt‑dlp Supported Sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
+
+> 💡 **چه سایت هایی را می توان دانلود کرد؟** یوتیوب، Vimeo، Twitch، Dailymotion، TikTok، فیسبوک، توییتر، Reddit، BBC، CNN و ... – بیش از ۱,۸۰۰ سایت.
 
 ---
 
-### دانلودر اینستاگرام
+### ۲. دانلودر اینستاگرام
 
-1. به **Actions** بروید → **"instagram-downloader"** را انتخاب کنید.
+1. **Actions** → **"instagram-downloader"**
 2. روی **"Run workflow"** کلیک کنید.
-3. در کادر ورودی، لینک‌های اینستاگرام خود را — **با کاما، فاصله یا خط جدید جدا کنید** — بچسبانید.
+3. لینک های اینستاگرام را با کاما، فاصله یا خط جدید جدا کنید.
 
 **مثال:**
 
+```
 https://www.instagram.com/p/DX2y7oLDFOb/, https://www.instagram.com/reel/DVRXhn0gjL3/, https://www.instagram.com/p/DX6US4uCNGb/
+```
 
-
-4. روی **"Run workflow"** کلیک کنید.
-5. پس از اتمام، فایل ZIP خروجی در پوشه **`instagram/`** مخزن شما ظاهر می‌شود.
-
-> 💡 **نکته:** می‌توانید تا ۱۰+ لینک را همزمان بچسبانید — دانلودر همه را پردازش کرده و در یک فایل ZIP واحد بسته‌بندی می‌کند.
+4. روی **"Run workflow"** کلیک کنید → فایل ZIP در پوشه **`instagram/`** قرار می گیرد.  
+   تا ۱۰+ لینک در یک ZIP بسته بندی می شوند.
 
 ---
 
-### دانلودر مستقیم
+### ۳. دانلودر X (توییتر)
 
-1. به **Actions** بروید → **"direct-downloader"** را انتخاب کنید.
+1. **Actions** → **"x-downloader"**
 2. روی **"Run workflow"** کلیک کنید.
-3. هر لینک دانلود مستقیم را بچسبانید (مثلاً `.zip`، `.mp4`، `.apk`، `.pdf` و غیره).
+3. لینک های X را با کاما، فاصله یا خط جدید جدا کنید.
 
 **مثال:**
 
-https://example.com/path/to/large-file.zip
+```
+https://x.com/username/status/123456789, https://x.com/otheruser/status/987654321
+```
 
+> ⚠️ **کوکی `X_COOKIES` الزامی است** (بخش کوکی ها را ببینید).
 
+4. روی **"Run workflow"** کلیک کنید → ZIP در پوشه **`x/`** قرار می گیرد.
+
+---
+
+### ۴. دانلودر مستقیم
+
+1. **Actions** → **"direct-downloader"**
+2. روی **"Run workflow"** کلیک کنید.
+3. لینک های مستقیم (مثلاً `.zip`, `.mp4`, `.apk`, `.pdf`) را بچسبانید.
+
+**مثال:**
+
+```
+https://example.com/path/to/large-file.zip, https://example.com/another-file.mp4
+```
+
+4. روی **"Run workflow"** کلیک کنید → فایل ها در **`direct/`** (تقسیم شده در صورت >99MB).
+
+---
+
+### ۵. آرشیو کانال تلگرام
+
+کانال های عمومی تلگرام را اسکن کرده و پیام ها، عکس ها و ویدیوها را به صورت بایگانی Markdown ذخیره می کند. می تواند **خودکار (هر ۱۵ دقیقه)** یا **دستی** اجرا شود.
+
+> اگر زمان بندی خودکار متوقف شد، می توانید همیشه آن را **دستی** اجرا کنید – اجرای دستی کاملاً قابل اعتماد است.
+
+#### نحوه کار (گام به گام)
+
+1. خواندن لیست کانال ها از `telegram/channels.json`.
+2. راه اندازی مرورگر Chromium (Playwright) و بازدید از `https://t.me/s/<channel>`.
+3. اسکرول برای دریافت پیام های جدید.
+4. استخراج متن، زمان UTC، عکس ها و ویدیوها.
+5. دانلود رسانه ها در `telegram/content/`.
+6. تبدیل زمان ها به منطقه زمانی تهران و تقویم جلالی.
+7. مرتب سازی همه پیام ها از جدید به قدیم.
+8. نوشتن در `telegram.md` با فرمت Markdown.
+9. ذخیره آخرین شناسه پیام در `telegram/last_ids.json`.
+10. Commit و push (با ۵ بار تلاش مجدد).
+
+#### مشاهده بایگانی
+
+فایل `telegram.md` را در مخزن باز کنید. GitHub مارک داون را نمایش می دهد – متن های نقل قول، تصاویر و لینک ویدیوها. تاریخ ها به تقویم جلالی با زمان تهران است.
+
+#### افزودن/حذف کانال
+
+فایل `telegram/channels.json` را ویرایش کنید (آیکون مداد ✏️). فقط کانال های **عمومی** کار می کنند.
+
+**مثال:**
+
+```
+[
+  "VahidOOnLine",
+  "mwarmonitor",
+  "pm_afshaa",
+  "iaghapour",
+  "DEJradio",
+  "mamlekate",
+  "VahidOnline",
+  "kianmeli1"
+]
+```
+
+#### اجرای دستی
+
+1. **Actions** → **"telegram-fetcher"**
+2. **"Run workflow"** → **"Run workflow"**
+
+---
+
+### ۶. ضبط وبسایت (جدید)
+
+هر وبسایت **عمومی** را به یک فایل PDF واحد و باکیفیت تبدیل می کند. از **Playwright + Chromium** استفاده می کند تا صفحات را دقیقاً مانند یک کاربر واقعی نمایش دهد.
+
+#### نحوه استفاده
+
+1. **Actions** → **"website-capture"**
+2. روی **"Run workflow"** کلیک کنید.
+3. آدرس کامل (با `https://`) را وارد کنید.
+
+**مثال ها:**
+
+```
+https://example.com/article/my-post
+https://developer.mozilla.org/en-US/docs/Web/JavaScript
+https://github.com/ProAlit/aio-downloader
+```
+
+4. کلیک کنید – ظرف ۵–۱۰ دقیقه PDF در پوشه **`website/`** ظاهر می شود.
+
+> ⚠️ **محدودیت ها:**  
+> - فقط سایت های عمومی (بدون دیوار ورود).  
+> - حداکثر ۲۰ لینک داخلی دنبال می شود.  
+> - مهلت ۳۰ دقیقه ای.  
+> - صفحات مبتنی بر JavaScript سنگین ممکن است کامل رندر نشوند.  
+> - بدون نیاز به کوکی!
+
+---
+
+### ۷. پاک کننده جامع (AIO Cleaner)
+
+فضای مخزن شما با دانلودها پر می شود. این گردش کار به شما اجازه می دهد هر پلتفرم را با یک کلیک پاک کنید.
+
+#### چه چیزهایی پاک می شوند
+
+| پلتفرم | آنچه حذف می شود |
+|---|---|
+| **تلگرام** | پوشه `telegram/content/` و فایل `telegram.md` |
+| **یوتیوب / جهانی** | کل پوشه `youtube/` |
+| **اینستاگرام** | کل پوشه `instagram/` |
+| **X (توییتر)** | کل پوشه `x/` |
+| **وبسایت** | کل پوشه `website/` |
+| **لیچر** | کل پوشه `leecher/` |
+
+#### نحوه اجرا
+
+1. **Actions** → **"aio-cleaner"**
+2. روی **"Run workflow"** کلیک کنید.
+3. چک باکس های مورد نظر را تیک بزنید (یا **Clean ALL platforms** برای همه).
 4. روی **"Run workflow"** کلیک کنید.
-5. فایل با ۱۶ اتصال موازی دانلود و در پوشه **`direct/`** مخزن شما آپلود می‌شود (در صورت نیاز به قطعات ۹۹ مگابایتی تقسیم می‌شود).
+
+> ⚠️ حذف دائمی است. مطمئن شوید فایل های مهم را قبلاً ذخیره کرده اید.
 
 ---
 
-## 📁 ساختار پوشه خروجی
-```plaintext
-your-repository/
-├── youtube/
-│ └── Video Title.mp4.zip ← دانلودهای یوتیوب (در صورت > 99MB به قطعات تقسیم می‌شوند)
-├── instagram/
-│ └── instagram-contents-YYYYMMDD_HHMMSS.zip ← تمام محتوای اینستاگرام در یک ZIP
-├── direct/
-│ └── filename.zip ← دانلودهای مستقیم (در صورت > 99MB به قطعات تقسیم می‌شوند)
-```
+## ⏱️ محدودیت ها و نکات
 
-### داخل ZIP اینستاگرام
-
-هنگام باز کردن ZIP اینستاگرام، خواهید دید:
-```plaintext
-instagram-content/
-├── instagram_moruhiko_388851...jpg
-├── instagram_moruhiko_388851...jpg
-├── instagram_israelinpersian_...webp
-├── instagram_meme.azaad_...mp4
-└── ...
-```
-
-تمام فایل‌ها برای مرور آسان در یک پوشه واحد قرار می‌گیرند. نام فایل‌ها با نام کاربری آپلودکننده پیشوندگذاری شده تا از تداخل جلوگیری شود.
+- حساب رایگان GitHub تا ۶ ساعت برای هر کار (مخازن عمومی دقیقه نامحدود دارند).
+- فایل های >۹۹ MB به ZIP چند بخشی تقسیم می شوند (7‑Zip / WinRAR برای استخراج).
+- دسته های خیلی بزرگ را به گروه های کوچکتر تقسیم کنید.
+- **دانلودر X به کوکی نیاز دارد.**
+- **آرشیو تلگرام فقط کانال های عمومی.**
+- **ضبط وبسایت** فقط سایت های عمومی؛ حداکثر ۲۰ لینک.
+- از **AIO Cleaner** به طور منظم برای مدیریت فضا استفاده کنید.
 
 ---
 
-## ⏱️ محدودیت‌ها
+## پشتیبانی
 
-- **طرح رایگان GitHub** تا **۶ ساعت برای هر کار (job)** اجازه می‌دهد (مخازن عمومی **دقیقه نامحدود** دارند).
-- فایل‌های بزرگتر از **۹۹ مگابایت** به‌طور خودکار به آرشیوهای ZIP چندبخشی (`.z01`, `.z02`, ...) تقسیم می‌شوند. برای استخراج به نرم‌افزاری مانند **7-Zip** یا **WinRAR** نیاز دارید.
-- برای دسته‌های بسیار بزرگ اینستاگرام، آن‌ها را به گروه‌های کوچک‌تر تقسیم کنید تا از محدودیت‌های ذخیره‌سازی GitHub فراتر نروید.
+⭐ اگر این پروژه برایتان مفید است، لطفاً **به مخزن ستاره بدهید** – به دیگران کمک می کند آن را پیدا کنند.
 
----
-
-## 💾 مدیریت فضای ذخیره‌سازی مخزن (محدودیت ۵ گیگابایت)
-
-مخازن GitHub دارای **محدودیت نرم ۵ گیگابایت** هستند (حد سخت ۱۰۰ گیگابایت، اما بهتر است زیر ۵ گیگابایت بمانید). اگر زیاد دانلود کنید، پوشه‌های `youtube/`، `instagram/` و `direct/` به سرعت پر می‌شوند. برای جلوگیری از مشکل، فایل‌های قدیمی را به طور منظم پاک کنید.
-
-### نحوه حذف فایل‌ها یا پوشه‌ها از طریق رابط وب GitHub
-
-#### حذف یک فایل
-1. به فایل مورد نظر در مخزن خود بروید (مثلاً `youtube/some-video.zip`).
-2. روی **سه نقطه (`...`)** در بالای صفحه کلیک کنید.
-3. گزینه **"Delete file"** را انتخاب کنید.
-4. در پایین صفحه، روی **"Commit changes"** کلیک کنید (در صورت تمایل یک پیام commit بنویسید) و تأیید کنید.
-
-#### حذف یک پوشه کامل
-1. به پوشه‌ای که می‌خواهید پاک کنید بروید (مثلاً `instagram/`).
-   - روی **سه نقطه (`...`)** در بالای صفحه کلیک کنید.
-   - گزینه **"Delete file"** را انتخاب کنید.
-   - در پایین صفحه، روی **"Commit changes"** کلیک کنید (در صورت تمایل یک پیام commit بنویسید) و تأیید کنید..
-
-> 💡 **نکته:** حجم مخزن خود را به طور مرتب در **Settings** → **Repository** → **Repository size** بررسی کنید. اگر به ۵ گیگابایت نزدیک شد، فایل‌های ZIP قدیمی را پاک کنید یا کل پوشه‌ها را خالی کنید.
+🐛 **باگ یا پیشنهاد؟**  
+یک issue [اینجا](https://github.com/ProAlit/aio-downloader/issues) باز کنید.  
+برای رسیدگی سریع تر، لطفاً این موارد را ذکر کنید:
+- نام گردش کاری که اجرا کردید.
+- ورودی هایی که استفاده کردید (بدون کوکی هایتان!).
+- پیام خطا یا لاگ (از تب Actions کپی کنید).
 
 ---
 
-## 📄 مجوز (License)
+## مجوز
 
 MIT License
-
-کپی‌رایت (c) 2025 ProAlit
-
-بدین‌وسیله به هر شخصی که یک کپی از این نرم‌افزار و فایل‌های مستندات همراه آن («نرم‌افزار») را دریافت می‌کند، به‌طور رایگان و بدون محدودیت اجازه داده می‌شود که از نرم‌افزار استفاده کند، آن را کپی، ویرایش، ادغام، منتشر، توزیع، زیرمجوز دهد و / یا بفروشد، و به افرادی که نرم‌افزار به آن‌ها ارائه می‌شود اجازه انجام آن را بدهد، مشروط بر رعایت شرایط زیر:
-
-اعلان کپی‌رایت فوق و این اعلان مجوز باید در تمام کپی‌ها یا بخش‌های عمده نرم‌افزار گنجانده شود.
-
-نرم‌افزار «همان‌گونه که هست» ارائه می‌شود، بدون هیچ‌گونه ضمانتی، صریح یا ضمنی، شامل اما نه محدود به ضمانت‌های تجاری بودن، تناسب برای یک هدف خاص و عدم نقض حقوق. در هیچ صورت نویسندگان یا دارندگان کپی‌رایت در قبال هرگونه ادعا، خسارت یا مسئولیت دیگری که از استفاده یا در ارتباط با نرم‌افزار ناشی شود، مسئول نخواهند بود.
-
----
-
-## ⭐ اگر این پروژه را دوست دارید
-
-لطفاً به مخزن **ستاره** ⭐ بدهید — این کار به دیگران کمک می‌کند آن را پیدا کنند!
-
----
-
-## 🐛 مشکلات و مشارکت‌ها
-
-باگی پیدا کردید؟ پیشنهادی دارید؟ [یک issue باز کنید](https://github.com/ProAlit/aio-downloader/issues) — بازخورد همیشه خوش‌آمد است!
